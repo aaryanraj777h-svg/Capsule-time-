@@ -1,0 +1,480 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Capsule Time</title>
+  <style>
+    :root {
+      --bg: #f3f7ff;
+      --card: #ffffff;
+      --ink: #17233b;
+      --muted: #5d6b86;
+      --blue: #2457e6;
+      --blue-dark: #1a3fba;
+      --amber: #d97706;
+      --rose: #e11d48;
+      --line: #d9e3f5;
+      --shadow: 0 16px 40px rgba(36, 87, 230, 0.12);
+    }
+    * { box-sizing: border-box; margin: 0; padding: 0; }
+    body {
+      font-family: "Segoe UI", Tahoma, sans-serif;
+      color: var(--ink);
+      min-height: 100vh;
+      padding: 18px;
+      background:
+        radial-gradient(circle at top left, #dbe7ff 0, transparent 34%),
+        radial-gradient(circle at bottom right, #e7f0ff 0, transparent 30%),
+        var(--bg);
+    }
+    .wrap { max-width: 560px; margin: 0 auto; }
+    header { display: flex; justify-content: space-between; align-items: center; margin-bottom: 14px; }
+    h1 { font-size: 28px; letter-spacing: -0.5px; }
+    h1 span { color: var(--blue); }
+    .badge {
+      background: #e7efff;
+      color: var(--blue-dark);
+      border-radius: 999px;
+      padding: 6px 10px;
+      font-size: 12px;
+      font-weight: 800;
+    }
+    .clock-card, .panel, .alarm-card, .stat {
+      background: var(--card);
+      border: 1px solid var(--line);
+      border-radius: 18px;
+      box-shadow: var(--shadow);
+    }
+    .clock-card { padding: 18px; text-align: center; margin-bottom: 14px; }
+    .brand-line { font-size: 12px; letter-spacing: 2px; color: var(--blue); font-weight: 800; }
+    .clock { font-size: 42px; font-weight: 800; color: #16327a; margin-top: 4px; }
+    .sub { color: var(--muted); margin-top: 4px; }
+    .stats { display: grid; grid-template-columns: 1fr 1fr; gap: 10px; margin-bottom: 14px; }
+    .stat { padding: 12px 14px; }
+    .stat b { display: block; font-size: 22px; color: var(--blue); }
+    .stat small { color: var(--muted); }
+    .panel { padding: 16px; margin-bottom: 14px; }
+    h2 { font-size: 18px; margin-bottom: 12px; }
+    .presets { display: flex; gap: 8px; flex-wrap: wrap; margin-bottom: 8px; }
+    .chip, button, input { font: inherit; }
+    .chip {
+      border: 1px solid var(--line);
+      background: #f8fbff;
+      color: var(--blue-dark);
+      border-radius: 999px;
+      padding: 7px 12px;
+      font-weight: 800;
+      cursor: pointer;
+    }
+    label { display: block; font-weight: 800; font-size: 14px; margin: 10px 0 6px; }
+    input {
+      width: 100%;
+      padding: 12px;
+      border-radius: 12px;
+      border: 1px solid #c9d7ef;
+      background: #fbfdff;
+    }
+    button {
+      width: 100%;
+      margin-top: 12px;
+      border: 0;
+      border-radius: 12px;
+      padding: 12px;
+      background: var(--blue);
+      color: white;
+      font-weight: 800;
+      cursor: pointer;
+    }
+    button:hover { background: var(--blue-dark); }
+    .alarm-card {
+      display: flex;
+      justify-content: space-between;
+      gap: 10px;
+      align-items: center;
+      padding: 12px;
+      margin-bottom: 10px;
+    }
+    .alarm-card strong { display: block; }
+    .alarm-card small { color: var(--muted); }
+    .row-btns { display: flex; gap: 6px; }
+    .mini { width: auto; margin: 0; padding: 8px 10px; font-size: 12px; border-radius: 10px; }
+    .warn { background: var(--amber); }
+    .danger { background: var(--rose); }
+    .empty { text-align: center; color: var(--muted); padding: 8px 0; }
+    .history { color: var(--muted); font-size: 14px; }
+    .history div { padding: 7px 0; border-bottom: 1px dashed var(--line); }
+    .overlay {
+      position: fixed;
+      inset: 0;
+      display: none;
+      align-items: center;
+      justify-content: center;
+      padding: 18px;
+      z-index: 20;
+      color: white;
+      text-align: center;
+      background: linear-gradient(160deg, #7f1d1d, #be123c 60%, #9f1239);
+    }
+    .overlay.active { display: flex; }
+    .sheet {
+      width: min(420px, 100%);
+      padding: 18px;
+      border-radius: 22px;
+      background: rgba(255,255,255,0.08);
+      border: 1px solid rgba(255,255,255,0.22);
+    }
+    video, canvas {
+      width: 100%;
+      height: 220px;
+      object-fit: cover;
+      background: #111;
+      border-radius: 14px;
+      margin: 12px 0;
+    }
+    .ok { background: #059669; }
+    .ghost { background: transparent; border: 1px solid rgba(255,255,255,0.5); margin-top: 8px; }
+    .status { min-height: 24px; font-weight: 800; margin-top: 8px; }
+  </style>
+</head>
+<body>
+  <div class="wrap">
+    <header>
+      <h1>Capsule <span>Time</span></h1>
+      <div class="badge" id="streakBadge">Streak 0 days</div>
+    </header>
+
+    <section class="clock-card">
+      <div class="brand-line">SMART CAPSULE ALARM</div>
+      <div class="clock" id="liveClock">00:00:00</div>
+      <div class="sub" id="nextLabel">No alarm set yet</div>
+    </section>
+
+    <section class="stats">
+      <div class="stat"><b id="alarmCount">0</b><small>Saved alarms</small></div>
+      <div class="stat"><b id="takenCount">0</b><small>Doses logged today</small></div>
+    </section>
+
+    <section class="panel">
+      <h2>New reminder</h2>
+      <div class="presets">
+        <button type="button" class="chip" data-time="07:30">Morning 7:30</button>
+        <button type="button" class="chip" data-time="14:00">Afternoon 2:00</button>
+        <button type="button" class="chip" data-time="21:00">Night 9:00</button>
+      </div>
+      <form id="reminderForm">
+        <label for="medName">Capsule / medicine name</label>
+        <input id="medName" required placeholder="Example: Vitamin D">
+        <label for="medInstruction">How to take it</label>
+        <input id="medInstruction" required placeholder="Example: After food, with a glass of water">
+        <label for="medTime">Alarm time</label>
+        <input id="medTime" type="time" required>
+        <button type="submit">Set alarm</button>
+      </form>
+    </section>
+
+    <section class="panel">
+      <h2>Your alarms</h2>
+      <div id="alarmsContainer"></div>
+    </section>
+
+    <section class="panel">
+      <h2>Today's log</h2>
+      <div class="history" id="historyBox"></div>
+    </section>
+  </div>
+
+  <div class="overlay" id="alarmOverlay">
+    <div class="sheet">
+      <div style="letter-spacing:1px; font-size:13px;">CAPSULE TIME</div>
+      <h2 id="activeMedName" style="font-size:28px; margin:8px 0;"></h2>
+      <p id="activeMedInstruction"></p>
+      <video id="webcam" autoplay playsinline></video>
+      <canvas id="photoCanvas" width="320" height="240" hidden></canvas>
+      <button class="ok" id="captureBtn" type="button">Take photo and confirm</button>
+      <button class="ghost" id="snoozeBtn" type="button">Snooze 5 minutes</button>
+      <div class="status" id="scanStatus"></div>
+    </div>
+  </div>
+
+  <script>
+    const STORAGE_KEY = "capsule-time-v1";
+    const state = loadState();
+    let audioContext = null;
+    let alarmTimer = null;
+    let activeAlarmId = null;
+    let videoStream = null;
+    let ringing = false;
+
+    const els = {
+      clock: document.getElementById("liveClock"),
+      nextLabel: document.getElementById("nextLabel"),
+      alarms: document.getElementById("alarmsContainer"),
+      history: document.getElementById("historyBox"),
+      form: document.getElementById("reminderForm"),
+      overlay: document.getElementById("alarmOverlay"),
+      activeName: document.getElementById("activeMedName"),
+      activeInstruction: document.getElementById("activeMedInstruction"),
+      status: document.getElementById("scanStatus"),
+      capture: document.getElementById("captureBtn"),
+      snooze: document.getElementById("snoozeBtn"),
+      alarmCount: document.getElementById("alarmCount"),
+      takenCount: document.getElementById("takenCount"),
+      streak: document.getElementById("streakBadge")
+    };
+
+    function loadState() {
+      try {
+        const saved = JSON.parse(localStorage.getItem(STORAGE_KEY));
+        if (saved && Array.isArray(saved.alarms)) return saved;
+      } catch (err) {}
+      return { alarms: [], history: [], streak: 0, lastTakenDate: "" };
+    }
+
+    function saveState() {
+      localStorage.setItem(STORAGE_KEY, JSON.stringify(state));
+    }
+
+    function todayKey() {
+      return new Date().toISOString().slice(0, 10);
+    }
+
+    function pad(n) {
+      return String(n).padStart(2, "0");
+    }
+
+    function nowHHMM() {
+      const now = new Date();
+      return pad(now.getHours()) + ":" + pad(now.getMinutes());
+    }
+
+    function speak(text) {
+      if (!window.speechSynthesis) return;
+      const msg = new SpeechSynthesisUtterance(text);
+      msg.lang = "en-US";
+      msg.rate = 1;
+      window.speechSynthesis.cancel();
+      window.speechSynthesis.speak(msg);
+    }
+
+    function startBeep() {
+      stopBeep();
+      audioContext = audioContext || new (window.AudioContext || window.webkitAudioContext)();
+      alarmTimer = setInterval(() => {
+        const osc = audioContext.createOscillator();
+        const gain = audioContext.createGain();
+        osc.type = "square";
+        osc.frequency.value = 740;
+        gain.gain.setValueAtTime(0.18, audioContext.currentTime);
+        gain.gain.exponentialRampToValueAtTime(0.001, audioContext.currentTime + 0.35);
+        osc.connect(gain);
+        gain.connect(audioContext.destination);
+        osc.start();
+        osc.stop(audioContext.currentTime + 0.35);
+      }, 700);
+    }
+
+    function stopBeep() {
+      clearInterval(alarmTimer);
+      alarmTimer = null;
+    }
+
+    function addAlarm(name, instruction, time) {
+      state.alarms.push({
+        id: Date.now().toString(36) + Math.random().toString(36).slice(2, 6),
+        name: name.trim(),
+        instruction: instruction.trim(),
+        time,
+        lastFiredDate: ""
+      });
+      saveState();
+      render();
+    }
+
+    function deleteAlarm(id) {
+      state.alarms = state.alarms.filter(item => item.id !== id);
+      saveState();
+      render();
+    }
+
+    function snoozeAlarm(id) {
+      const alarm = state.alarms.find(item => item.id === id);
+      if (!alarm) return;
+      const next = new Date(Date.now() + 5 * 60 * 1000);
+      alarm.time = pad(next.getHours()) + ":" + pad(next.getMinutes());
+      alarm.lastFiredDate = "";
+      saveState();
+    }
+
+    function markTaken(alarm) {
+      const date = todayKey();
+      state.history.unshift({
+        name: alarm.name,
+        time: new Date().toLocaleTimeString("en-US", { hour: "2-digit", minute: "2-digit" }),
+        date
+      });
+      state.history = state.history.slice(0, 12);
+      if (state.lastTakenDate !== date) {
+        const yesterday = new Date();
+        yesterday.setDate(yesterday.getDate() - 1);
+        const yKey = yesterday.toISOString().slice(0, 10);
+        state.streak = state.lastTakenDate === yKey ? state.streak + 1 : 1;
+        state.lastTakenDate = date;
+      }
+      saveState();
+    }
+
+    function dueAlarms() {
+      const key = todayKey();
+      const hhmm = nowHHMM();
+      return state.alarms.filter(alarm => alarm.time === hhmm && alarm.lastFiredDate !== key);
+    }
+
+    function nextAlarmText() {
+      if (!state.alarms.length) return "No alarm set yet";
+      const now = new Date();
+      const minutesNow = now.getHours() * 60 + now.getMinutes();
+      const ranked = state.alarms.map(alarm => {
+        const [h, m] = alarm.time.split(":").map(Number);
+        let mins = h * 60 + m;
+        if (mins <= minutesNow) mins += 24 * 60;
+        return { alarm, mins };
+      }).sort((a, b) => a.mins - b.mins);
+      const wait = ranked[0].mins - minutesNow;
+      const hrs = Math.floor(wait / 60);
+      const mins = wait % 60;
+      return "Next: " + ranked[0].alarm.name + " in " + hrs + "h " + mins + "m";
+    }
+
+    function escapeHtml(value) {
+      return String(value).replace(/[&<>"']/g, ch => ({
+        "&": "&", "<": "<", ">": ">", '"': """, "'": "&#39;"
+      }[ch]));
+    }
+
+    function render() {
+      els.alarmCount.textContent = state.alarms.length;
+      els.takenCount.textContent = state.history.filter(item => item.date === todayKey()).length;
+      els.streak.textContent = "Streak " + state.streak + " days";
+      els.nextLabel.textContent = nextAlarmText();
+      els.alarms.innerHTML = state.alarms.length
+        ? state.alarms.map(alarm => `
+          <article class="alarm-card">
+            <div>
+              <strong>${escapeHtml(alarm.name)} · ${alarm.time}</strong>
+              <small>${escapeHtml(alarm.instruction)}</small>
+            </div>
+            <div class="row-btns">
+              <button class="mini warn" type="button" data-test="${alarm.id}">Test</button>
+              <button class="mini danger" type="button" data-del="${alarm.id}">Delete</button>
+            </div>
+          </article>`).join("")
+        : '<p class="empty">No alarms yet.</p>';
+      els.history.innerHTML = state.history.length
+        ? state.history.map(item => `<div>${escapeHtml(item.name)} · ${item.time} · ${item.date}</div>`).join("")
+        : '<p class="empty">Nothing logged today.</p>';
+    }
+
+    async function openCamera() {
+      videoStream = await navigator.mediaDevices.getUserMedia({ video: { facingMode: "environment" } });
+      document.getElementById("webcam").srcObject = videoStream;
+    }
+
+    function closeCamera() {
+      if (!videoStream) return;
+      videoStream.getTracks().forEach(track => track.stop());
+      videoStream = null;
+    }
+
+    async function triggerAlarm(alarm) {
+      if (ringing) return;
+      ringing = true;
+      activeAlarmId = alarm.id;
+      const saved = state.alarms.find(item => item.id === alarm.id);
+      if (saved) saved.lastFiredDate = todayKey();
+      saveState();
+      els.activeName.textContent = alarm.name;
+      els.activeInstruction.textContent = alarm.instruction;
+      els.status.textContent = "Hold the capsule in view, then take a photo.";
+      els.overlay.classList.add("active");
+      startBeep();
+      speak("Capsule Time. It is time to take " + alarm.name + ".");
+      try {
+        await openCamera();
+      } catch (err) {
+        els.status.textContent = "Camera did not open. You can snooze and try again.";
+      }
+    }
+
+    function dismissAlarm(taken) {
+      const alarm = state.alarms.find(item => item.id === activeAlarmId);
+      stopBeep();
+      closeCamera();
+      if (window.speechSynthesis) window.speechSynthesis.cancel();
+      els.overlay.classList.remove("active");
+      els.capture.disabled = false;
+      if (taken && alarm) markTaken(alarm);
+      ringing = false;
+      activeAlarmId = null;
+      render();
+    }
+
+    function tick() {
+      const now = new Date();
+      els.clock.textContent = now.toLocaleTimeString("en-GB", { hour12: false });
+      if (now.getSeconds() === 0) els.nextLabel.textContent = nextAlarmText();
+      if (!ringing) {
+        const due = dueAlarms();
+        if (due.length) triggerAlarm(due[0]);
+      }
+    }
+
+    els.form.addEventListener("submit", event => {
+      event.preventDefault();
+      addAlarm(
+        document.getElementById("medName").value,
+        document.getElementById("medInstruction").value,
+        document.getElementById("medTime").value
+      );
+      els.form.reset();
+    });
+
+    document.querySelectorAll(".chip").forEach(chip => {
+      chip.addEventListener("click", () => {
+        document.getElementById("medTime").value = chip.dataset.time;
+      });
+    });
+
+    els.alarms.addEventListener("click", event => {
+      const del = event.target.dataset.del;
+      const test = event.target.dataset.test;
+      if (del) deleteAlarm(del);
+      if (test) {
+        const alarm = state.alarms.find(item => item.id === test);
+        if (alarm) triggerAlarm(alarm);
+      }
+    });
+
+    els.capture.addEventListener("click", () => {
+      const video = document.getElementById("webcam");
+      const canvas = document.getElementById("photoCanvas");
+      canvas.getContext("2d").drawImage(video, 0, 0, canvas.width, canvas.height);
+      els.capture.disabled = true;
+      els.status.textContent = "Checking photo...";
+      setTimeout(() => {
+        els.status.textContent = "Confirmed. Nice work!";
+        setTimeout(() => dismissAlarm(true), 900);
+      }, 1600);
+    });
+
+    els.snooze.addEventListener("click", () => {
+      snoozeAlarm(activeAlarmId);
+      dismissAlarm(false);
+    });
+
+    render();
+    tick();
+    setInterval(tick, 1000);
+  </script>
+</body>
+</html>
